@@ -1,0 +1,22 @@
+{
+  "name": "retell-orchestrator",
+  "version": "1.0.0",
+  "description": "Centralized management hub for Retell AI agents — Configuration as Code",
+  "type": "module",
+  "scripts": {
+    "ui": "node src/server/index.js",
+    "sync": "node scripts/sync-functions.js",
+    "diff": "node scripts/diff-agents.js",
+    "snapshot": "node scripts/snapshot-agent.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "retell-sdk": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

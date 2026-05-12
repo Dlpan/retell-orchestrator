@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retell Orchestrator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3450;
+      --accent: #6c8ef7;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --radius: 10px;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -.5px; }
+    .logo span { color: var(--accent); }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 61px); }
+
+    /* ── Sidebar tabs ── */
+    nav {
+      width: 200px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    nav button {
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      border: none;
+      background: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 14px;
+      font-family: var(--font);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background .15s, color .15s;
+    }
+    nav button:hover { background: var(--surface2); color: var(--text); }
+    nav button.active { background: var(--accent); color: #fff; }
+    nav .icon { font-size: 16px; width: 20px; text-align: center; }
+    nav .divider { height: 1px; background: var(--border); margin: 8px 4px; }
+
+    /* ── Main panel ── */
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .panel {
+      display: none;
+      flex: 1;
+      padding: 28px 32px;
+      overflow-y: auto;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .panel.active { display: flex; }
+
+    h2 { font-size: 18px; font-weight: 600; }
+    p.desc { color: var(--text2); font-size: 14px; line-height: 1.6; }
+
+    /* ── Form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-grid.wide { grid-template-columns: 1fr; }
+    label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 5px; }
+    label span { color: var(--red); }
+    input[type=text], select, textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+    .field { display: flex; flex-direction: column; }
+
+    /* Checkboxes */
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text2);
+      cursor: pointer;
+    }
+    .check-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    button.run-btn {
+      padding: 10px 22px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+      font-family: var(--font);
+    }
+    button.run-btn:hover { opacity: .85; }
+    button.run-btn:disabled { opacity: .4; cursor: not-allowed; }
+    button.sec-btn {
+      padding: 10px 18px;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background .15s;
+    }
+    button.sec-btn:hover { background: var(--border); }
+
+    /* ── Log terminal ── */
+    .log-wrap {
+      background: #0a0c14;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      min-height: 200px;
+      max-height: 420px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .log-wrap .empty { color: var(--text2); font-style: italic; }
+    .log-entry { white-space: pre-wrap; word-break: break-all; }
+    .log-entry.info    { color: #94a3b8; }
+    .log-entry.success { color: var(--green); }
+    .log-entry.warn    { color: var(--yellow); }
+    .log-entry.error   { color: var(--red); }
+    .log-entry.diff-add    { color: var(--green); }
+    .log-entry.diff-update { color: var(--yellow); }
+    .log-entry.diff-remove { color: var(--red); }
+    .log-entry.diff-only_a { color: #60a5fa; }
+    .log-entry.diff-only_b { color: var(--accent2); }
+    .log-entry.diff-changed { color: var(--yellow); }
+    .log-entry.diff-same   { color: #475569; }
+
+    /* ── Status pill ── */
+    .status-pill {
+      display: none;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-pill.running { display: inline-block; background: #1e3a5f; color: var(--accent); }
+    .status-pill.success { display: inline-block; background: #064e3b; color: var(--green); }
+    .status-pill.error   { display: inline-block; background: #450a0a; color: var(--red); }
+
+    /* ── Snapshot list ── */
+    .snap-list { display: flex; flex-direction: column; gap: 8px; }
+    .snap-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .snap-card .snap-info { font-size: 13px; }
+    .snap-card .snap-label { font-weight: 600; font-size: 13px; }
+    .snap-card .snap-date { color: var(--text2); font-size: 12px; margin-top: 2px; font-family: var(--mono); }
+    .snap-card button {
+      padding: 6px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      flex-shrink: 0;
+    }
+    .snap-card button:hover { background: var(--border); }
+
+    .hint { font-size: 12px; color: var(--text2); }
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Retell <span>Orchestrator</span></div>
+  <div class="badge">Management UI</div>
+</header>
+
+<div class="layout">
+  <nav>
+    <button class="active" onclick="switchTab('sync', this)">
+      <span class="icon">⇄</span> Sync Tools
+    </button>
+    <button onclick="switchTab('batch', this)">
+      <span class="icon">⊕</span> Batch Sync
+    </button>
+    <div class="divider"></div>
+    <button onclick="switchTab('diff', this)">
+      <span class="icon">≠</span> Agent Diff
+    </button>
+    <div class="divider"></div>
+    <button onclick="switchTab('snapshot', this)">
+      <span class="icon">◎</span> Snapshot
+    </button>
+    <button onclick="switchTab('restore', this)">
+      <span class="icon">↺</span> Restore
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ─── SYNC ─────────────────────────────────────────────── -->
+    <div class="panel active" id="panel-sync">
+      <div>
+        <h2>Sync Custom Functions</h2>
+        <p class="desc" style="margin-top:6px">Copy custom tools from a source agent's LLM to a target agent. Non-custom tools (end_call, transfer_call…) on the target are never touched.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Source Agent ID <span>*</span></label>
+          <input type="text" id="sync-from" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Target Agent ID <span>*</span></label>
+          <input type="text" id="sync-to" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="sync-mode">
+            <option value="merge">merge — upsert, keep target-only tools</option>
+            <option value="replace">replace — overwrite all custom tools</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Filter (optional)</label>
+          <input type="text" id="sync-filter" placeholder="create_lead, book_appointment" />
+          <span class="hint" style="margin-top:4px">Comma-separated. Leave blank to sync all.</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="sync-dry-btn" onclick="runSync(true)">▷ Dry Run</button>
+        <button class="run-btn" id="sync-run-btn" onclick="runSync(false)" style="background:var(--green);color:#000">▶ Apply</button>
+        <span class="status-pill" id="sync-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output Log</div>
+        <div class="log-wrap" id="sync-log"><span class="empty">Run a sync to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── BATCH SYNC ───────────────────────────────────────── -->
+    <div class="panel" id="panel-batch">
+      <div>
+        <h2>Batch Sync</h2>
+        <p class="desc" style="margin-top:6px">Push custom functions from one source agent to multiple targets at once — e.g. roll out a new tool to all merchants simultaneously.</p>
+      </div>
+      <div class="form-grid wide">
+        <div class="field">
+          <label>Source Agent ID <span>*</span></label>
+          <input type="text" id="batch-from" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Target Agent IDs <span>*</span></label>
+          <textarea id="batch-to" rows="4" placeholder="agent_aaa&#10;agent_bbb&#10;agent_ccc" style="resize:vertical"></textarea>
+          <span class="hint" style="margin-top:4px">One agent ID per line.</span>
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="batch-mode">
+            <option value="merge">merge</option>
+            <option value="replace">replace</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Filter (optional)</label>
+          <input type="text" id="batch-filter" placeholder="create_lead, book_appointment" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="batch-dry-btn" onclick="runBatch(true)">▷ Dry Run</button>
+        <button class="run-btn" id="batch-run-btn" onclick="runBatch(false)" style="background:var(--green);color:#000">▶ Apply All</button>
+        <span class="status-pill" id="batch-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output Log</div>
+        <div class="log-wrap" id="batch-log"><span class="empty">Run a batch sync to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── DIFF ─────────────────────────────────────────────── -->
+    <div class="panel" id="panel-diff">
+      <div>
+        <h2>Agent Diff</h2>
+        <p class="desc" style="margin-top:6px">Compare the custom tools of two agents — shows what's only in A, only in B, and what differs between them.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Agent A <span>*</span></label>
+          <input type="text" id="diff-a" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Agent B <span>*</span></label>
+          <input type="text" id="diff-b" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="diff-btn" onclick="runDiff()">⇄ Compare</button>
+        <span class="status-pill" id="diff-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Diff Output</div>
+        <div class="log-wrap" id="diff-log"><span class="empty">Run a diff to see results…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── SNAPSHOT ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-snapshot">
+      <div>
+        <h2>Take Snapshot</h2>
+        <p class="desc" style="margin-top:6px">Export an agent's full LLM config (prompt + tools) to a versioned JSON file stored in <code>data/snapshots/</code>.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Agent ID <span>*</span></label>
+          <input type="text" id="snap-agent" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Label (optional)</label>
+          <input type="text" id="snap-label" placeholder="before-update-May-2026" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="snap-btn" onclick="runSnapshot()">◎ Save Snapshot</button>
+        <span class="status-pill" id="snap-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output</div>
+        <div class="log-wrap" id="snap-log"><span class="empty">Take a snapshot to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── RESTORE ───────────────────────────────────────────── -->
+    <div class="panel" id="panel-restore">
+      <div>
+        <h2>Restore Snapshot</h2>
+        <p class="desc" style="margin-top:6px">Roll back an agent's tools to a previously saved snapshot. Always dry-run first.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Agent ID <span>*</span></label>
+          <input type="text" id="restore-agent" placeholder="agent_xxxxxxxxxxxxxxxx" oninput="loadSnapshotList()" />
+        </div>
+        <div class="field">
+          <label>Snapshot</label>
+          <select id="restore-snap"><option value="">— enter agent ID first —</option></select>
+        </div>
+      </div>
+      <div id="restore-snap-list" class="snap-list" style="display:none"></div>
+      <div class="btn-row">
+        <button class="run-btn" id="restore-dry-btn" onclick="runRestore(true)">▷ Dry Run</button>
+        <button class="run-btn" id="restore-run-btn" onclick="runRestore(false)" style="background:var(--red)">↺ Restore</button>
+        <span class="status-pill" id="restore-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output</div>
+        <div class="log-wrap" id="restore-log"><span class="empty">Run a restore to see output…</span></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── Tab switching ────────────────────────────────────────────────────────────
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── SSE log renderer ─────────────────────────────────────────────────────────
+
+function clearLog(logId) {
+  const el = document.getElementById(logId);
+  el.innerHTML = '';
+  return el;
+}
+
+function appendLog(logEl, cls, text) {
+  const line = document.createElement('div');
+  line.className = 'log-entry ' + cls;
+  line.textContent = text;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStatus(pillId, state, text) {
+  const pill = document.getElementById(pillId);
+  pill.className = 'status-pill ' + state;
+  pill.textContent = text;
+}
+
+function streamSSE({ url, body, logId, statusId, buttons }) {
+  const logEl = clearLog(logId);
+  appendLog(logEl, 'info', '⏳ Connecting…');
+  setStatus(statusId, 'running', '● Running');
+  buttons.forEach(b => { const el = document.getElementById(b); if (el) el.disabled = true; });
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(res => {
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          buttons.forEach(b => { const el = document.getElementById(b); if (el) el.disabled = false; });
+          return;
+        }
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          const lines = part.split('\n');
+          let event = 'message', dataStr = '';
+          for (const l of lines) {
+            if (l.startsWith('event:')) event = l.slice(6).trim();
+            if (l.startsWith('data:'))  dataStr = l.slice(5).trim();
+          }
+          try {
+            const data = JSON.parse(dataStr);
+            handleEvent(logEl, statusId, event, data);
+          } catch {}
+        }
+        read();
+      });
+    }
+    read();
+  }).catch(err => {
+    appendLog(logEl, 'error', '✖ Connection error: ' + err.message);
+    setStatus(statusId, 'error', '✖ Error');
+    buttons.forEach(b => { const el = document.getElementById(b); if (el) el.disabled = false; });
+  });
+}
+
+function handleEvent(logEl, statusId, event, data) {
+  switch (event) {
+    case 'info':
+      appendLog(logEl, 'info', data.message ?? JSON.stringify(data));
+      break;
+    case 'success':
+      appendLog(logEl, 'success', data.message ?? JSON.stringify(data));
+      break;
+    case 'warn':
+      appendLog(logEl, 'warn', '⚠ ' + (data.message ?? JSON.stringify(data)));
+      break;
+    case 'error':
+      appendLog(logEl, 'error', '✖ ' + (data.message ?? JSON.stringify(data)));
+      setStatus(statusId, 'error', '✖ Error');
+      break;
+    case 'diff':
+      renderDiff(logEl, data);
+      break;
+    case 'close':
+      if (data.success) setStatus(statusId, 'success', '✔ Done');
+      else setStatus(statusId, 'error', '✖ Failed');
+      break;
+  }
+}
+
+function renderDiff(logEl, data) {
+  const icons = { add: '+ ', update: '~ ', remove: '- ', only_a: 'A ', only_b: 'B ', changed: '≠ ', same: '= ' };
+  const cls   = { add: 'diff-add', update: 'diff-update', remove: 'diff-remove',
+                  only_a: 'diff-only_a', only_b: 'diff-only_b', changed: 'diff-changed', same: 'diff-same' };
+  const icon = icons[data.op] ?? '  ';
+  const line = `${icon}${data.name}${data.description ? '  — ' + data.description : ''}`;
+  appendLog(logEl, cls[data.op] ?? 'info', line);
+}
+
+// ─── Sync ─────────────────────────────────────────────────────────────────────
+
+function runSync(dryRun) {
+  streamSSE({
+    url: '/api/sync',
+    body: {
+      from:   document.getElementById('sync-from').value.trim(),
+      to:     document.getElementById('sync-to').value.trim(),
+      mode:   document.getElementById('sync-mode').value,
+      filter: document.getElementById('sync-filter').value.trim(),
+      dryRun,
+    },
+    logId: 'sync-log',
+    statusId: 'sync-status',
+    buttons: ['sync-dry-btn', 'sync-run-btn'],
+  });
+}
+
+// ─── Batch sync ───────────────────────────────────────────────────────────────
+
+function runBatch(dryRun) {
+  const targets = document.getElementById('batch-to').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  streamSSE({
+    url: '/api/sync',
+    body: {
+      from:   document.getElementById('batch-from').value.trim(),
+      to:     targets,
+      mode:   document.getElementById('batch-mode').value,
+      filter: document.getElementById('batch-filter').value.trim(),
+      dryRun,
+    },
+    logId: 'batch-log',
+    statusId: 'batch-status',
+    buttons: ['batch-dry-btn', 'batch-run-btn'],
+  });
+}
+
+// ─── Diff ─────────────────────────────────────────────────────────────────────
+
+function runDiff() {
+  streamSSE({
+    url: '/api/diff',
+    body: {
+      agentA: document.getElementById('diff-a').value.trim(),
+      agentB: document.getElementById('diff-b').value.trim(),
+    },
+    logId: 'diff-log',
+    statusId: 'diff-status',
+    buttons: ['diff-btn'],
+  });
+}
+
+// ─── Snapshot ─────────────────────────────────────────────────────────────────
+
+function runSnapshot() {
+  streamSSE({
+    url: '/api/snapshot',
+    body: {
+      agentId: document.getElementById('snap-agent').value.trim(),
+      label:   document.getElementById('snap-label').value.trim(),
+    },
+    logId: 'snap-log',
+    statusId: 'snap-status',
+    buttons: ['snap-btn'],
+  });
+}
+
+// ─── Restore ──────────────────────────────────────────────────────────────────
+
+let _snapDebounce = null;
+function loadSnapshotList() {
+  clearTimeout(_snapDebounce);
+  _snapDebounce = setTimeout(async () => {
+    const agentId = document.getElementById('restore-agent').value.trim();
+    const sel = document.getElementById('restore-snap');
+    if (!agentId) { sel.innerHTML = '<option value="">— enter agent ID first —</option>'; return; }
+    sel.innerHTML = '<option>Loading…</option>';
+    try {
+      const res = await fetch(`/api/snapshots/${agentId}`);
+      const { snapshots } = await res.json();
+      if (!snapshots.length) {
+        sel.innerHTML = '<option value="">No snapshots found</option>';
+        return;
+      }
+      sel.innerHTML = snapshots.map(s =>
+        `<option value="${s.filename}">${s.createdAt.slice(0,19).replace('T',' ')}  —  ${s.label}</option>`
+      ).join('');
+    } catch {
+      sel.innerHTML = '<option value="">Error loading</option>';
+    }
+  }, 500);
+}
+
+function runRestore(dryRun) {
+  streamSSE({
+    url: '/api/restore',
+    body: {
+      agentId:  document.getElementById('restore-agent').value.trim(),
+      filename: document.getElementById('restore-snap').value,
+      dryRun,
+    },
+    logId: 'restore-log',
+    statusId: 'restore-status',
+    buttons: ['restore-dry-btn', 'restore-run-btn'],
+  });
+}
+</script>
+</body>
+</html>
