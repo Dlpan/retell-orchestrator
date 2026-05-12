@@ -1,0 +1,95 @@
+[
+  {
+    "id": "zg-bay-area",
+    "agent_id": "agent_dc565489788859550a98e18f1f",
+    "llm_id": "llm_5bfbb5108d7cef7e811ab382c7c5",
+    "template": "grooming",
+
+    "business_type": "mobile",
+    "mode": "full-booking",
+    "escalation_mode": "transfer",
+    "services_template": "bath-packages",
+    "waitlist_mode": "task",
+    "collect_coat_type": true,
+    "has_faq": false,
+    "has_self_serve_reschedule": false,
+    "has_self_serve_cancel": false,
+
+    "business_name": "Zoomin Groomin Bay Area",
+    "business_id": "{{business_id}}",
+    "location": "Bay Area",
+    "working_hours": "{{working_hours}}",
+    "service_area": "{{service_area}}",
+    "business_phone": "{{business_phone}}",
+    "business_phone_spoken": "{{business_phone}}",
+    "business_email": "{{business_email}}",
+    "booking_url": null,
+    "close_dates": null,
+
+    "greeting_match": "Am I speaking with [first name from profile]?",
+    "greeting_new": "Thank you for calling Zoomin Groomin. How can I help you today?",
+    "max_sentences_per_turn": 2
+  },
+  {
+    "id": "zg-galveston",
+    "agent_id": "agent_359be04a746cc8aad15ba8c275",
+    "llm_id": "llm_98fbf74e0360e8bbb95a78f419f3",
+    "template": "grooming",
+
+    "business_type": "mobile",
+    "mode": "intake-only",
+    "escalation_mode": "transfer",
+    "services_template": "bath-packages",
+    "waitlist_mode": "task",
+    "collect_coat_type": true,
+    "has_faq": false,
+    "has_self_serve_reschedule": false,
+    "has_self_serve_cancel": false,
+
+    "business_name": "Zoomin Groomin Galveston",
+    "business_id": "{{business_id}}",
+    "location": "Galveston",
+    "working_hours": "{{working_hours}}",
+    "service_area": "{{service_area}}",
+    "business_phone": "{{business_phone}}",
+    "business_phone_spoken": "{{business_phone}}",
+    "business_email": "{{business_email}}",
+    "booking_url": null,
+    "close_dates": null,
+
+    "greeting_match": "Am I speaking with [first name from profile]?",
+    "greeting_new": "Thank you for calling Zoomin Groomin. How can I help you today?",
+    "max_sentences_per_turn": 2
+  },
+  {
+    "id": "maddies",
+    "agent_id": "agent_fd2693101dd9ae40a0471274c9",
+    "llm_id": "llm_f26150b3a41aae2097d3a9ba455e",
+    "template": "grooming",
+
+    "business_type": "mobile",
+    "mode": "full-booking",
+    "escalation_mode": "take-message",
+    "services_template": "groom-tiers",
+    "waitlist_mode": "api",
+    "collect_coat_type": false,
+    "has_faq": true,
+    "has_self_serve_reschedule": true,
+    "has_self_serve_cancel": true,
+
+    "business_name": "Maddie's Mobile Grooming",
+    "business_id": "{{business_id}}",
+    "location": "{{location}}",
+    "working_hours": "{{working_hours}}",
+    "service_area": "{{service_area}}",
+    "business_phone": "{{business_phone}}",
+    "business_phone_spoken": "{{business_phone}}",
+    "business_email": "{{business_email}}",
+    "booking_url": "{{booking_url}}",
+    "close_dates": "January 1 -- New Year's Day\nJuly 4 -- Independence Day\nSeptember 7 -- Labour Day\nNovember 26 -- Thanksgiving Day\nDecember 25 -- Christmas Day",
+
+    "greeting_match": "Thank you for calling {{business_name}} [first name from profile], great to hear from you. How can I help you today?",
+    "greeting_new": "Thank you for calling {{business_name}}. How can I help you today?",
+    "max_sentences_per_turn": 3
+  }
+]

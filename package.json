@@ -7,13 +7,15 @@
     "ui": "node src/server/index.js",
     "sync": "node scripts/sync-functions.js",
     "diff": "node scripts/diff-agents.js",
-    "snapshot": "node scripts/snapshot-agent.js"
+    "snapshot": "node scripts/snapshot-agent.js",
+    "sync-prompt": "node scripts/sync-prompt.js"
   },
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
+    "handlebars": "^4.7.9",
     "retell-sdk": "^4.0.0"
   },
   "engines": {
