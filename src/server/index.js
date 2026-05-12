@@ -27,6 +27,7 @@ import {
   loadMerchants,
   getMerchant,
   compilePrompt,
+  saveMerchant,
 } from '../core/prompt-compiler.js';
 import { getClient } from '../api/retell-client.js';
 
@@ -75,7 +76,7 @@ app.get('/api/agents', async (_req, res) => {
 app.get('/api/merchants', async (_req, res) => {
   try {
     const merchants = await loadMerchants();
-    res.json({ merchants: merchants.map(m => ({ id: m.id, business_name: m.business_name, llm_id: m.llm_id })) });
+    res.json({ merchants });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -184,6 +185,19 @@ app.post('/api/restore', async (req, res) => {
   } catch (err) {
     emit('error', { message: err.message });
     close(false);
+  }
+});
+
+/**
+ * PUT /api/merchants/:id
+ * Body: partial merchant object (only editable fields are written)
+ */
+app.put('/api/merchants/:id', async (req, res) => {
+  try {
+    const merchant = await saveMerchant(req.params.id, req.body ?? {});
+    res.json({ success: true, merchant });
+  } catch (err) {
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
 });
 

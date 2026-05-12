@@ -95,3 +95,34 @@ export async function previewPrompt(merchantId) {
   const merchant = await getMerchant(merchantId);
   return compilePrompt(merchant);
 }
+
+/**
+ * Persist updates for a single merchant back to merchants.json.
+ * Only whitelisted editable fields are written; id/agent_id/llm_id/template are protected.
+ *
+ * @param {string} id       — merchant id
+ * @param {object} updates  — partial merchant object with fields to overwrite
+ * @returns {Promise<object>} the updated merchant record
+ */
+export async function saveMerchant(id, updates) {
+  const EDITABLE = new Set([
+    'business_name', 'business_type', 'mode', 'escalation_mode',
+    'services_template', 'waitlist_mode', 'collect_coat_type',
+    'has_faq', 'has_self_serve_reschedule', 'has_self_serve_cancel',
+    'location', 'working_hours', 'service_area',
+    'business_phone', 'business_phone_spoken', 'business_email',
+    'booking_url', 'close_dates',
+    'greeting_match', 'greeting_new', 'max_sentences_per_turn',
+  ]);
+
+  const merchants = await loadMerchants();
+  const idx = merchants.findIndex((m) => m.id === id);
+  if (idx === -1) throw new Error(`Merchant "${id}" not found`);
+
+  for (const [key, val] of Object.entries(updates)) {
+    if (EDITABLE.has(key)) merchants[idx][key] = val;
+  }
+
+  await fs.writeFile(MERCHANTS_FILE, JSON.stringify(merchants, null, 2), 'utf8');
+  return merchants[idx];
+}

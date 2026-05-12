@@ -246,6 +246,51 @@
       color: var(--text2);
       margin-bottom: 6px;
     }
+
+    /* ── Merchant editor ── */
+    .merchant-cards {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .merchant-card-btn {
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px;
+      text-align: left;
+      transition: border-color .15s, background .15s;
+    }
+    .merchant-card-btn:hover { border-color: var(--accent); background: var(--surface2); }
+    .merchant-card-btn.selected { border-color: var(--accent); background: var(--surface2); }
+    .merchant-card-btn .mc-name { font-weight: 600; }
+    .merchant-card-btn .mc-id   { font-size: 11px; color: var(--text2); margin-top: 2px; font-family: var(--mono); }
+
+    .edit-form { display: none; flex-direction: column; gap: 22px; }
+    .edit-form.visible { display: flex; }
+    .form-section { display: flex; flex-direction: column; gap: 12px; }
+    .form-section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .flags-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+    }
+    .readonly-field { font-family: var(--mono); font-size: 12px; color: var(--text2); padding: 9px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; }
+    .save-bar { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
+    .save-msg { font-size: 13px; }
+    .save-msg.ok   { color: var(--green); }
+    .save-msg.fail { color: var(--red); }
   </style>
 </head>
 <body>
@@ -277,6 +322,10 @@
     <div class="divider"></div>
     <button onclick="switchTab('prompt', this)">
       <span class="icon">✦</span> Prompt Sync
+    </button>
+    <div class="divider"></div>
+    <button onclick="switchTab('merchants', this)">
+      <span class="icon">⚙</span> Merchants
     </button>
   </nav>
 
@@ -444,37 +493,151 @@
     <div class="panel" id="panel-prompt">
       <div>
         <h2>Prompt Sync</h2>
-        <p class="desc" style="margin-top:6px">Compile a merchant's prompt from templates + fragments and push it to their Retell LLM. Use Dry Run + Preview to inspect the output before applying.</p>
+        <p class="desc" style="margin-top:6px">
+          Prompts are built from <code>src/prompts/templates/</code> + <code>fragments/</code> using the merchant's config flags in <code>data/merchants.json</code>.
+          Select a merchant, preview the compiled output, then push to their Retell LLM.
+        </p>
       </div>
+
       <div class="form-grid">
         <div class="field">
           <label>Merchant <span>*</span></label>
-          <select id="prompt-merchant">
+          <select id="prompt-merchant" onchange="onMerchantSelect()">
             <option value="">Loading merchants…</option>
           </select>
         </div>
-        <div class="field" style="justify-content:flex-end; gap:10px">
+        <div class="field">
           <label style="visibility:hidden">.</label>
-          <div style="display:flex; gap:12px; align-items:center">
-            <label class="check-row">
-              <input type="checkbox" id="prompt-preview" checked />
-              Preview compiled prompt
-            </label>
-          </div>
+          <label class="check-row" style="height:38px">
+            <input type="checkbox" id="prompt-preview" checked />
+            Show compiled prompt after run
+          </label>
         </div>
       </div>
+
+      <!-- Merchant info card, shown after selecting -->
+      <div id="prompt-merchant-card" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 18px; font-size:13px; display:none">
+        <div style="display:flex; flex-wrap:wrap; gap:16px;">
+          <div><span style="color:var(--text2)">Template</span><br><code id="mc-template" style="color:var(--accent)"></code></div>
+          <div><span style="color:var(--text2)">Mode</span><br><code id="mc-mode"></code></div>
+          <div><span style="color:var(--text2)">Escalation</span><br><code id="mc-escalation"></code></div>
+          <div><span style="color:var(--text2)">LLM ID</span><br><code id="mc-llm" style="color:var(--text2); font-size:11px"></code></div>
+        </div>
+      </div>
+
       <div class="btn-row">
-        <button class="run-btn" id="prompt-dry-btn" onclick="runPromptSync(true)">▷ Dry Run</button>
+        <button class="run-btn" id="prompt-dry-btn" onclick="runPromptSync(true)">▷ Dry Run + Preview</button>
         <button class="run-btn" id="prompt-run-btn" onclick="runPromptSync(false)" style="background:var(--green);color:#000">▶ Push to Retell</button>
         <span class="status-pill" id="prompt-status"></span>
       </div>
+
       <div>
         <div class="section-label">Output Log</div>
-        <div class="log-wrap" id="prompt-log"><span class="empty">Select a merchant and run to see output…</span></div>
+        <div class="log-wrap" id="prompt-log"><span class="empty">Select a merchant and click Dry Run to preview…</span></div>
       </div>
+
       <div id="prompt-preview-wrap" style="display:none">
-        <div class="section-label" style="margin-top:4px">Compiled Prompt Preview</div>
-        <div class="log-wrap" id="prompt-preview-log" style="max-height:500px; white-space:pre-wrap; font-size:12px; color:#94a3b8"></div>
+        <div class="section-label" style="margin-top:4px">Compiled Prompt</div>
+        <div class="log-wrap" id="prompt-preview-log" style="max-height:520px; white-space:pre-wrap; font-size:12px; line-height:1.6; color:#94a3b8"></div>
+      </div>
+    </div>
+
+    <!-- ─── MERCHANTS ────────────────────────────────────────── -->
+    <div class="panel" id="panel-merchants">
+      <div>
+        <h2>Merchants</h2>
+        <p class="desc" style="margin-top:6px">Edit a merchant's config flags. Changes are saved to <code>data/merchants.json</code>. Go to <strong>Prompt Sync</strong> to push the updated prompt to Retell.</p>
+      </div>
+
+      <div class="merchant-cards" id="merchant-card-list">
+        <span style="color:var(--text2); font-size:13px">Loading…</span>
+      </div>
+
+      <div class="edit-form" id="merchant-edit-form">
+
+        <!-- Read-only identifiers -->
+        <div class="form-section">
+          <div class="form-section-title">Identifiers (read-only)</div>
+          <div class="form-grid">
+            <div class="field"><label>Merchant ID</label><div class="readonly-field" id="ef-id"></div></div>
+            <div class="field"><label>Template</label><div class="readonly-field" id="ef-template"></div></div>
+            <div class="field"><label>Agent ID</label><div class="readonly-field" id="ef-agent-id"></div></div>
+            <div class="field"><label>LLM ID</label><div class="readonly-field" id="ef-llm-id"></div></div>
+          </div>
+        </div>
+
+        <!-- Behaviour flags -->
+        <div class="form-section">
+          <div class="form-section-title">Behaviour Flags</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Business Type</label>
+              <select id="ef-business-type">
+                <option value="mobile">mobile</option>
+                <option value="salon">salon</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Mode</label>
+              <select id="ef-mode">
+                <option value="full-booking">full-booking</option>
+                <option value="intake-only">intake-only</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Escalation Mode</label>
+              <select id="ef-escalation-mode">
+                <option value="transfer">transfer</option>
+                <option value="take-message">take-message</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Services Template</label>
+              <select id="ef-services-template">
+                <option value="bath-packages">bath-packages</option>
+                <option value="groom-tiers">groom-tiers</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Waitlist Mode</label>
+              <select id="ef-waitlist-mode">
+                <option value="task">task</option>
+                <option value="api">api</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Max Sentences / Turn</label>
+              <input type="number" id="ef-max-sentences" min="1" max="10" />
+            </div>
+          </div>
+          <div class="flags-grid" style="margin-top:4px">
+            <label class="check-row"><input type="checkbox" id="ef-collect-coat" /> Collect coat type</label>
+            <label class="check-row"><input type="checkbox" id="ef-has-faq" /> Has FAQ</label>
+            <label class="check-row"><input type="checkbox" id="ef-has-reschedule" /> Self-serve reschedule</label>
+            <label class="check-row"><input type="checkbox" id="ef-has-cancel" /> Self-serve cancel</label>
+          </div>
+        </div>
+
+        <!-- Greeting & voice -->
+        <div class="form-section">
+          <div class="form-section-title">Greeting &amp; Voice</div>
+          <div class="form-grid wide">
+            <div class="field">
+              <label>Greeting — Returning caller</label>
+              <input type="text" id="ef-greeting-match" />
+            </div>
+            <div class="field">
+              <label>Greeting — New caller</label>
+              <input type="text" id="ef-greeting-new" />
+            </div>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <button class="run-btn" onclick="saveMerchantConfig()">💾 Save to JSON</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
+
       </div>
     </div>
 
@@ -489,6 +652,8 @@ function switchTab(name, btn) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   btn.classList.add('active');
+  if (name === 'prompt')    loadMerchants();
+  if (name === 'merchants') loadMerchantsTab();
 }
 
 // ─── SSE log renderer ─────────────────────────────────────────────────────────
@@ -579,6 +744,12 @@ function handleEvent(logEl, statusId, event, data) {
     case 'diff':
       renderDiff(logEl, data);
       break;
+    case 'preview': {
+      const wrap = document.getElementById('prompt-preview-wrap');
+      const pre  = document.getElementById('prompt-preview-log');
+      if (wrap && pre) { wrap.style.display = 'block'; pre.textContent = data.prompt ?? ''; }
+      break;
+    }
     case 'close':
       if (data.success) setStatus(statusId, 'success', '✔ Done');
       else setStatus(statusId, 'error', '✖ Failed');
@@ -705,48 +876,143 @@ function runRestore(dryRun) {
 
 // ─── Prompt Sync ──────────────────────────────────────────────────────────────
 
+let _merchantCache = [];
+
 async function loadMerchants() {
   const sel = document.getElementById('prompt-merchant');
   try {
     const res = await fetch('/api/merchants');
     const { merchants } = await res.json();
+    _merchantCache = merchants;
     sel.innerHTML =
-      '<option value="__all__">— All Merchants —</option>' +
+      '<option value="">— Select a merchant —</option>' +
+      '<option value="__all__">⊕ All Merchants</option>' +
+      '<option disabled>──────────────</option>' +
       merchants.map(m =>
         `<option value="${m.id}">${m.business_name}  (${m.id})</option>`
       ).join('');
-  } catch {
-    sel.innerHTML = '<option value="">Error loading merchants</option>';
+    onMerchantSelect();
+  } catch (err) {
+    sel.innerHTML = '<option value="">⚠ Failed to load — is the server running?</option>';
   }
 }
 
-// Extend handleEvent to handle 'preview' events from prompt sync
-const _origHandleEvent = handleEvent;
-function handleEvent(logEl, statusId, event, data) {
-  if (event === 'preview') {
-    const wrap = document.getElementById('prompt-preview-wrap');
-    const previewLog = document.getElementById('prompt-preview-log');
-    if (wrap && previewLog) {
-      wrap.style.display = 'block';
-      previewLog.textContent = data.prompt ?? '';
-    }
-    return;
+function onMerchantSelect() {
+  const merchantId = document.getElementById('prompt-merchant').value;
+  const card = document.getElementById('prompt-merchant-card');
+  if (!merchantId || merchantId === '__all__') { card.style.display = 'none'; return; }
+  const m = _merchantCache.find(x => x.id === merchantId);
+  if (!m) { card.style.display = 'none'; return; }
+  document.getElementById('mc-template').textContent   = `${m.template}.md`;
+  document.getElementById('mc-mode').textContent       = m.mode;
+  document.getElementById('mc-escalation').textContent = m.escalation_mode;
+  document.getElementById('mc-llm').textContent        = m.llm_id;
+  card.style.display = 'block';
+}
+
+// ─── Merchants editor ─────────────────────────────────────────────────────────
+
+let _editingMerchantId = null;
+
+async function loadMerchantsTab() {
+  const list = document.getElementById('merchant-card-list');
+  list.innerHTML = '<span style="color:var(--text2);font-size:13px">Loading…</span>';
+  try {
+    const res = await fetch('/api/merchants');
+    const { merchants } = await res.json();
+    _merchantCache = merchants;
+    list.innerHTML = merchants.map(m => `
+      <button class="merchant-card-btn" onclick="selectMerchantEdit('${m.id}')" id="mcbtn-${m.id}">
+        <div class="mc-name">${m.business_name}</div>
+        <div class="mc-id">${m.id}</div>
+      </button>`).join('');
+    // auto-select first
+    if (merchants.length) selectMerchantEdit(merchants[0].id);
+  } catch {
+    list.innerHTML = '<span style="color:var(--red);font-size:13px">Failed to load merchants</span>';
   }
-  _origHandleEvent(logEl, statusId, event, data);
+}
+
+function selectMerchantEdit(id) {
+  _editingMerchantId = id;
+  document.querySelectorAll('.merchant-card-btn').forEach(b => b.classList.remove('selected'));
+  const btn = document.getElementById('mcbtn-' + id);
+  if (btn) btn.classList.add('selected');
+
+  const m = _merchantCache.find(x => x.id === id);
+  if (!m) return;
+
+  // Read-only
+  document.getElementById('ef-id').textContent        = m.id;
+  document.getElementById('ef-template').textContent  = m.template + '.md';
+  document.getElementById('ef-agent-id').textContent  = m.agent_id;
+  document.getElementById('ef-llm-id').textContent    = m.llm_id;
+
+  // Selects
+  document.getElementById('ef-business-type').value     = m.business_type     ?? 'mobile';
+  document.getElementById('ef-mode').value               = m.mode              ?? 'full-booking';
+  document.getElementById('ef-escalation-mode').value   = m.escalation_mode   ?? 'transfer';
+  document.getElementById('ef-services-template').value = m.services_template ?? 'bath-packages';
+  document.getElementById('ef-waitlist-mode').value     = m.waitlist_mode      ?? 'task';
+  document.getElementById('ef-max-sentences').value     = m.max_sentences_per_turn ?? 2;
+
+  // Checkboxes
+  document.getElementById('ef-collect-coat').checked   = !!m.collect_coat_type;
+  document.getElementById('ef-has-faq').checked        = !!m.has_faq;
+  document.getElementById('ef-has-reschedule').checked = !!m.has_self_serve_reschedule;
+  document.getElementById('ef-has-cancel').checked     = !!m.has_self_serve_cancel;
+
+  // Greeting text
+  document.getElementById('ef-greeting-match').value = m.greeting_match ?? '';
+  document.getElementById('ef-greeting-new').value   = m.greeting_new   ?? '';
+
+  document.getElementById('merchant-edit-form').classList.add('visible');
+  document.getElementById('save-msg').textContent = '';
+}
+
+async function saveMerchantConfig() {
+  if (!_editingMerchantId) return;
+  const msg = document.getElementById('save-msg');
+  msg.textContent = 'Saving…'; msg.className = 'save-msg';
+
+  const payload = {
+    business_type:           document.getElementById('ef-business-type').value,
+    mode:                    document.getElementById('ef-mode').value,
+    escalation_mode:         document.getElementById('ef-escalation-mode').value,
+    services_template:       document.getElementById('ef-services-template').value,
+    waitlist_mode:           document.getElementById('ef-waitlist-mode').value,
+    max_sentences_per_turn:  Number(document.getElementById('ef-max-sentences').value),
+    collect_coat_type:         document.getElementById('ef-collect-coat').checked,
+    has_faq:                   document.getElementById('ef-has-faq').checked,
+    has_self_serve_reschedule: document.getElementById('ef-has-reschedule').checked,
+    has_self_serve_cancel:     document.getElementById('ef-has-cancel').checked,
+    greeting_match:            document.getElementById('ef-greeting-match').value,
+    greeting_new:              document.getElementById('ef-greeting-new').value,
+  };
+
+  try {
+    const res = await fetch(`/api/merchants/${_editingMerchantId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    // Update cache
+    const idx = _merchantCache.findIndex(m => m.id === _editingMerchantId);
+    if (idx !== -1) _merchantCache[idx] = data.merchant;
+    msg.textContent = '✔ Saved'; msg.className = 'save-msg ok';
+  } catch (err) {
+    msg.textContent = '✖ ' + err.message; msg.className = 'save-msg fail';
+  }
 }
 
 function runPromptSync(dryRun) {
   const merchantId = document.getElementById('prompt-merchant').value;
   const preview    = document.getElementById('prompt-preview').checked;
+  if (!merchantId) { alert('Please select a merchant.'); return; }
 
-  // Hide previous preview
-  const wrap = document.getElementById('prompt-preview-wrap');
-  if (wrap) wrap.style.display = 'none';
-
-  if (!merchantId) {
-    alert('Please select a merchant.');
-    return;
-  }
+  document.getElementById('prompt-preview-wrap').style.display = 'none';
 
   streamSSE({
     url: '/api/sync-prompt',
@@ -757,12 +1023,6 @@ function runPromptSync(dryRun) {
   });
 }
 
-// Load merchants when Prompt Sync tab is opened
-const _origSwitchTab = switchTab;
-function switchTab(name, btn) {
-  _origSwitchTab(name, btn);
-  if (name === 'prompt') loadMerchants();
-}
 </script>
 </body>
 </html>
