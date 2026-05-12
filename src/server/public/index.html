@@ -274,6 +274,10 @@
     <button onclick="switchTab('restore', this)">
       <span class="icon">↺</span> Restore
     </button>
+    <div class="divider"></div>
+    <button onclick="switchTab('prompt', this)">
+      <span class="icon">✦</span> Prompt Sync
+    </button>
   </nav>
 
   <main>
@@ -433,6 +437,44 @@
       <div>
         <div class="section-label">Output</div>
         <div class="log-wrap" id="restore-log"><span class="empty">Run a restore to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── PROMPT SYNC ──────────────────────────────────────── -->
+    <div class="panel" id="panel-prompt">
+      <div>
+        <h2>Prompt Sync</h2>
+        <p class="desc" style="margin-top:6px">Compile a merchant's prompt from templates + fragments and push it to their Retell LLM. Use Dry Run + Preview to inspect the output before applying.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Merchant <span>*</span></label>
+          <select id="prompt-merchant">
+            <option value="">Loading merchants…</option>
+          </select>
+        </div>
+        <div class="field" style="justify-content:flex-end; gap:10px">
+          <label style="visibility:hidden">.</label>
+          <div style="display:flex; gap:12px; align-items:center">
+            <label class="check-row">
+              <input type="checkbox" id="prompt-preview" checked />
+              Preview compiled prompt
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" id="prompt-dry-btn" onclick="runPromptSync(true)">▷ Dry Run</button>
+        <button class="run-btn" id="prompt-run-btn" onclick="runPromptSync(false)" style="background:var(--green);color:#000">▶ Push to Retell</button>
+        <span class="status-pill" id="prompt-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output Log</div>
+        <div class="log-wrap" id="prompt-log"><span class="empty">Select a merchant and run to see output…</span></div>
+      </div>
+      <div id="prompt-preview-wrap" style="display:none">
+        <div class="section-label" style="margin-top:4px">Compiled Prompt Preview</div>
+        <div class="log-wrap" id="prompt-preview-log" style="max-height:500px; white-space:pre-wrap; font-size:12px; color:#94a3b8"></div>
       </div>
     </div>
 
@@ -659,6 +701,67 @@ function runRestore(dryRun) {
     statusId: 'restore-status',
     buttons: ['restore-dry-btn', 'restore-run-btn'],
   });
+}
+
+// ─── Prompt Sync ──────────────────────────────────────────────────────────────
+
+async function loadMerchants() {
+  const sel = document.getElementById('prompt-merchant');
+  try {
+    const res = await fetch('/api/merchants');
+    const { merchants } = await res.json();
+    sel.innerHTML =
+      '<option value="__all__">— All Merchants —</option>' +
+      merchants.map(m =>
+        `<option value="${m.id}">${m.business_name}  (${m.id})</option>`
+      ).join('');
+  } catch {
+    sel.innerHTML = '<option value="">Error loading merchants</option>';
+  }
+}
+
+// Extend handleEvent to handle 'preview' events from prompt sync
+const _origHandleEvent = handleEvent;
+function handleEvent(logEl, statusId, event, data) {
+  if (event === 'preview') {
+    const wrap = document.getElementById('prompt-preview-wrap');
+    const previewLog = document.getElementById('prompt-preview-log');
+    if (wrap && previewLog) {
+      wrap.style.display = 'block';
+      previewLog.textContent = data.prompt ?? '';
+    }
+    return;
+  }
+  _origHandleEvent(logEl, statusId, event, data);
+}
+
+function runPromptSync(dryRun) {
+  const merchantId = document.getElementById('prompt-merchant').value;
+  const preview    = document.getElementById('prompt-preview').checked;
+
+  // Hide previous preview
+  const wrap = document.getElementById('prompt-preview-wrap');
+  if (wrap) wrap.style.display = 'none';
+
+  if (!merchantId) {
+    alert('Please select a merchant.');
+    return;
+  }
+
+  streamSSE({
+    url: '/api/sync-prompt',
+    body: { merchantId, dryRun, preview },
+    logId: 'prompt-log',
+    statusId: 'prompt-status',
+    buttons: ['prompt-dry-btn', 'prompt-run-btn'],
+  });
+}
+
+// Load merchants when Prompt Sync tab is opened
+const _origSwitchTab = switchTab;
+function switchTab(name, btn) {
+  _origSwitchTab(name, btn);
+  if (name === 'prompt') loadMerchants();
 }
 </script>
 </body>

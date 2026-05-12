@@ -23,6 +23,12 @@ import {
   restoreSnapshot,
   listAgents,
 } from '../core/retell-ops.js';
+import {
+  loadMerchants,
+  getMerchant,
+  compilePrompt,
+} from '../core/prompt-compiler.js';
+import { getClient } from '../api/retell-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -60,6 +66,16 @@ app.get('/api/agents', async (_req, res) => {
   try {
     const agents = await listAgents();
     res.json({ agents });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/merchants — list all merchants from merchants.json */
+app.get('/api/merchants', async (_req, res) => {
+  try {
+    const merchants = await loadMerchants();
+    res.json({ merchants: merchants.map(m => ({ id: m.id, business_name: m.business_name, llm_id: m.llm_id })) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -169,6 +185,77 @@ app.post('/api/restore', async (req, res) => {
     emit('error', { message: err.message });
     close(false);
   }
+});
+
+/**
+ * POST /api/sync-prompt  (SSE)
+ * Body: { merchantId: string | '__all__', dryRun?: boolean, preview?: boolean }
+ *
+ * Compiles prompt(s) from templates + fragments and (unless dryRun) pushes to Retell LLM.
+ * preview=true prints the compiled prompt text into the SSE stream.
+ */
+app.post('/api/sync-prompt', async (req, res) => {
+  const { merchantId, dryRun = false, preview = false } = req.body ?? {};
+  const { emit, close } = startSSE(res);
+
+  if (!merchantId) {
+    emit('error', { message: 'Missing required field: merchantId' });
+    return close(false);
+  }
+
+  let merchants;
+  try {
+    merchants = merchantId === '__all__'
+      ? await loadMerchants()
+      : [await getMerchant(merchantId)];
+  } catch (err) {
+    emit('error', { message: err.message });
+    return close(false);
+  }
+
+  const results = [];
+
+  for (const merchant of merchants) {
+    emit('info', { message: `▶ ${merchant.id}  (${merchant.llm_id})` });
+
+    // 1. Compile
+    let prompt;
+    try {
+      prompt = await compilePrompt(merchant);
+    } catch (err) {
+      emit('error', { message: `${merchant.id}: compile failed — ${err.message}` });
+      results.push({ id: merchant.id, success: false });
+      continue;
+    }
+
+    const lineCount = prompt.split('\n').length;
+    emit('info', { message: `  Compiled: ${lineCount} lines, ${prompt.length} chars` });
+
+    if (preview) {
+      emit('preview', { id: merchant.id, prompt });
+    }
+
+    if (dryRun) {
+      emit('warn', { message: `  (dry-run) Would push to LLM ${merchant.llm_id}` });
+      results.push({ id: merchant.id, success: true, dryRun: true });
+      continue;
+    }
+
+    // 2. Push to Retell LLM
+    try {
+      await getClient().llm.update(merchant.llm_id, { general_prompt: prompt });
+      emit('success', { message: `  ✔ Pushed to LLM ${merchant.llm_id}` });
+      results.push({ id: merchant.id, success: true });
+    } catch (err) {
+      emit('error', { message: `  ✖ Push failed — ${err.message}` });
+      results.push({ id: merchant.id, success: false });
+    }
+  }
+
+  const ok  = results.filter(r => r.success).length;
+  const err = results.filter(r => !r.success).length;
+  emit('info', { message: `\nSummary: ${ok} ok${err ? `, ${err} failed` : ''}` });
+  close(ok === results.length);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
