@@ -24,6 +24,8 @@ import {
   listSnapshots,
   restoreSnapshot,
   listAgents,
+  listFlowNodes,
+  updateFlowNode,
 } from '../core/retell-ops.js';
 import {
   loadMerchants,
@@ -361,6 +363,46 @@ app.post('/api/sync-prompt', async (req, res) => {
   const err = results.filter(r => !r.success).length;
   emit('info', { message: `\nSummary: ${ok} ok${err ? `, ${err} failed` : ''}` });
   close(ok === results.length);
+});
+
+/**
+ * GET /api/flow-nodes/:agentId
+ * Returns the list of editable nodes (with instruction text) for a conversation-flow agent.
+ */
+app.get('/api/flow-nodes/:agentId', async (req, res) => {
+  try {
+    const result = await listFlowNodes(req.params.agentId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/flow-node/update  (SSE)
+ * Body: { agentId, nodeId, text, instructionType?, dryRun? }
+ *
+ * Updates a single conversation-flow node's instruction text.
+ */
+app.post('/api/flow-node/update', async (req, res) => {
+  const { agentId, nodeId, text, instructionType = 'prompt', dryRun = false } = req.body ?? {};
+  const { emit, close } = startSSE(res);
+
+  if (!agentId || !nodeId || text == null) {
+    emit('error', { message: 'Missing required fields: agentId, nodeId, text' });
+    return close(false);
+  }
+
+  try {
+    const result = await updateFlowNode(
+      { agentId, nodeId, text, instructionType, dryRun },
+      (event, data) => emit(event, typeof data === 'string' ? { message: data } : data)
+    );
+    close(result.success);
+  } catch (err) {
+    emit('error', { message: err.message });
+    close(false);
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

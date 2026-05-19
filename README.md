@@ -8,15 +8,16 @@ Eliminates manual UI configuration by programmatically managing Custom Functions
 
 ## Features
 
-| Feature | CLI | Web UI |
-|---|---|---|
-| **Sync** custom functions between agents | ✅ | ✅ |
-| **Batch sync** to multiple agents at once | ✅ | ✅ |
-| **Sync Vars & Tools** — sync dynamic variables and/or custom tools across engine types (retell-llm → retell-llm or conversation-flow) | ✅ | ✅ |
-| **Sync Post Call Data** — sync post call analysis fields across any engine type | ✅ | ✅ |
-| **Diff** two agents' tools side-by-side | ✅ | ✅ |
-| **Snapshot** an agent's config | ✅ | ✅ |
-| **Restore** from a previous snapshot | ✅ | ✅ |
+| Feature                                                                                                                               | CLI | Web UI |
+| ------------------------------------------------------------------------------------------------------------------------------------- | --- | ------ |
+| **Sync** custom functions between agents                                                                                              | ✅  | ✅     |
+| **Batch sync** to multiple agents at once                                                                                             | ✅  | ✅     |
+| **Sync Vars & Tools** — sync dynamic variables and/or custom tools across engine types (retell-llm → retell-llm or conversation-flow) | ✅  | ✅     |
+| **Sync Post Call Data** — sync post call analysis fields across any engine type                                                       | ✅  | ✅     |
+| **Flow Editor** — view and edit conversation-flow node instructions inline; export to markdown for AI-assisted editing                | ✅  | ✅     |
+| **Diff** two agents' tools side-by-side                                                                                               | ✅  | ✅     |
+| **Snapshot** an agent's config                                                                                                        | ✅  | ✅     |
+| **Restore** from a previous snapshot                                                                                                  | ✅  | ✅     |
 
 ---
 
@@ -79,6 +80,9 @@ node scripts/sync-vars-and-tools.js --from <sourceAgentId> --to <targetAgentId> 
 # Sync post call analysis fields
 node scripts/sync-post-call-data.js --from <sourceAgentId> --to <targetAgentId> --dry-run
 
+# Export all conversation-flow node instructions to markdown (for AI-assisted editing)
+node scripts/dump-flow-prompts.js <agentId>
+
 # Compare two agents
 npm run diff -- --a <agentA> --b <agentB>
 
@@ -94,45 +98,46 @@ npm run snapshot -- restore --agent <agentId> --file <filename> --dry-run
 
 ### `sync-functions` (retell-llm only)
 
-| Option | Default | Description |
-|---|---|---|
-| `--from <id>` | required | Source agent ID |
-| `--to <id>` | required | Target agent ID |
-| `--mode merge\|replace` | `merge` | `merge` upserts (keeps target-only tools); `replace` overwrites all custom tools |
-| `--filter <names>` | all | Comma-separated tool names to sync |
-| `--dry-run` | — | Preview without writing |
-| `--verbose` | — | Print full JSON payloads |
+| Option                  | Default  | Description                                                                      |
+| ----------------------- | -------- | -------------------------------------------------------------------------------- |
+| `--from <id>`           | required | Source agent ID                                                                  |
+| `--to <id>`             | required | Target agent ID                                                                  |
+| `--mode merge\|replace` | `merge`  | `merge` upserts (keeps target-only tools); `replace` overwrites all custom tools |
+| `--filter <names>`      | all      | Comma-separated tool names to sync                                               |
+| `--dry-run`             | —        | Preview without writing                                                          |
+| `--verbose`             | —        | Print full JSON payloads                                                         |
 
 ### `sync-vars-and-tools` (cross-engine)
 
 Syncs custom tools and/or dynamic variables from a **retell-llm** source to any target (retell-llm or conversation-flow).
 
-| Option | Default | Description |
-|---|---|---|
-| `--from <id>` | required | Source agent ID (must be retell-llm) |
-| `--to <id...>` | required | Target agent ID(s) — repeat for multiple |
-| `--mode merge\|replace` | `merge` | merge upserts; replace overwrites |
-| `--no-tools` | — | Skip custom tools sync |
-| `--no-vars` | — | Skip dynamic variables sync |
-| `--tool-filter <names>` | all | Comma-separated tool names to sync |
-| `--var-filter <keys>` | all | Comma-separated variable keys to sync |
-| `--dry-run` | — | Preview without writing |
-| `--verbose` | — | Print full JSON payloads |
+| Option                  | Default  | Description                              |
+| ----------------------- | -------- | ---------------------------------------- |
+| `--from <id>`           | required | Source agent ID (must be retell-llm)     |
+| `--to <id...>`          | required | Target agent ID(s) — repeat for multiple |
+| `--mode merge\|replace` | `merge`  | merge upserts; replace overwrites        |
+| `--no-tools`            | —        | Skip custom tools sync                   |
+| `--no-vars`             | —        | Skip dynamic variables sync              |
+| `--tool-filter <names>` | all      | Comma-separated tool names to sync       |
+| `--var-filter <keys>`   | all      | Comma-separated variable keys to sync    |
+| `--dry-run`             | —        | Preview without writing                  |
+| `--verbose`             | —        | Print full JSON payloads                 |
 
 ### `sync-post-call-data` (any engine type)
 
 Syncs post call analysis fields from any source agent to any target agent(s).
 
-| Option | Default | Description |
-|---|---|---|
-| `--from <id>` | required | Source agent ID |
-| `--to <id...>` | required | Target agent ID(s) — repeat for multiple |
-| `--mode merge\|replace` | `merge` | merge upserts by field name; replace overwrites |
-| `--filter <names>` | all | Comma-separated field names to sync |
-| `--sync-model` | — | Also sync the `post_call_analysis_model` setting |
-| `--dry-run` | — | Preview without writing |
+| Option                  | Default  | Description                                      |
+| ----------------------- | -------- | ------------------------------------------------ |
+| `--from <id>`           | required | Source agent ID                                  |
+| `--to <id...>`          | required | Target agent ID(s) — repeat for multiple         |
+| `--mode merge\|replace` | `merge`  | merge upserts by field name; replace overwrites  |
+| `--filter <names>`      | all      | Comma-separated field names to sync              |
+| `--sync-model`          | —        | Also sync the `post_call_analysis_model` setting |
+| `--dry-run`             | —        | Preview without writing                          |
 
 **merge vs replace:**
+
 ```
 Source: [A, B, C]   Target: [B, D]
 
@@ -159,7 +164,8 @@ retell-orchestrator/
 │   ├── sync-post-call-data.js        # Sync post call data CLI
 │   ├── diff-agents.js                # Diff CLI
 │   ├── snapshot-agent.js             # Snapshot / restore CLI
-│   └── dump-prompts.js               # Export agent prompts to markdown files
+│   ├── dump-prompts.js               # Export retell-llm agent prompts to markdown
+│   └── dump-flow-prompts.js          # Export conversation-flow node instructions to markdown
 ├── data/snapshots/                   # Local snapshot storage
 ├── .env.example                      # Environment variable template
 └── package.json
@@ -175,4 +181,4 @@ Copy `.env.example` to `.env` and fill in:
 RETELL_API_KEY=key_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Get your API key at [app.retellai.com/dashboard/api-key](https://app.retellai.com/dashboard/api-key).
+Get your API key at [dashboard.retellai.com/settings/api-keys](https://dashboard.retellai.com/settings/api-keys).

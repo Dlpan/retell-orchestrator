@@ -291,6 +291,53 @@
     .save-msg { font-size: 13px; }
     .save-msg.ok   { color: var(--green); }
     .save-msg.fail { color: var(--red); }
+
+    /* ── Flow Node Editor ── */
+    .node-list { display: flex; flex-direction: column; gap: 16px; }
+    .node-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color .15s;
+    }
+    .node-card:focus-within { border-color: var(--accent); }
+    .node-card-header { display: flex; align-items: center; gap: 10px; }
+    .node-name { font-weight: 600; font-size: 14px; }
+    .node-type-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+    }
+    .node-instr-type { margin-left: auto; font-size: 12px; color: var(--text2); }
+    .node-card textarea { min-height: 120px; resize: vertical; font-size: 13px; line-height: 1.6; }
+    .node-card-footer { display: flex; align-items: center; gap: 10px; }
+    .node-save-btn {
+      padding: 7px 18px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: opacity .15s;
+    }
+    .node-save-btn:hover { opacity: .85; }
+    .node-save-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .node-status { font-size: 12px; }
+    .node-status.ok     { color: var(--green); }
+    .node-status.fail   { color: var(--red); }
+    .node-status.saving { color: var(--accent); }
+    #fe-node-list-wrap .empty { color: var(--text2); font-size: 13px; font-style: italic; }
   </style>
 </head>
 <body>
@@ -332,6 +379,10 @@
     <div class="divider"></div>
     <button onclick="switchTab('merchants', this)">
       <span class="icon">⚙</span> Merchants
+    </button>
+    <div class="divider"></div>
+    <button onclick="switchTab('floweditor', this)">
+      <span class="icon">✎</span> Flow Editor
     </button>
   </nav>
 
@@ -757,6 +808,31 @@
       </div>
     </div>
 
+    <!-- ─── FLOW EDITOR ──────────────────────────────────────── -->
+    <div class="panel" id="panel-floweditor">
+      <div>
+        <h2>Flow Editor</h2>
+        <p class="desc" style="margin-top:6px">Load a conversation-flow agent to view and edit each node's instruction inline. Paste the exported content into an AI for suggestions, then apply changes here.</p>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Agent ID <span>*</span></label>
+          <input type="text" id="fe-agent-id" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="run-btn" id="fe-load-btn" onclick="loadFlowNodes()">Load Nodes</button>
+        <button class="sec-btn" id="fe-export-btn" onclick="exportFlowNodes()" style="display:none">Export Markdown</button>
+        <span class="status-pill" id="fe-load-status"></span>
+      </div>
+
+      <div id="fe-node-list-wrap">
+        <span class="empty">Enter an agent ID and click Load Nodes.</span>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -770,7 +846,7 @@ function switchTab(name, btn) {
   btn.classList.add('active');
   if (name === 'prompt')    loadMerchants();
   if (name === 'merchants') loadMerchantsTab();
-  // flowsync has no async data to preload
+  // floweditor / flowsync have no async data to preload
 }
 
 // ─── SSE log renderer ─────────────────────────────────────────────────────────
@@ -1189,6 +1265,163 @@ function runPromptSync(dryRun) {
     statusId: 'prompt-status',
     buttons: ['prompt-dry-btn', 'prompt-run-btn'],
   });
+}
+
+// ─── Flow Editor ──────────────────────────────────────────────────────────────
+
+let _feNodes = [];   // cached node list from last load
+
+async function loadFlowNodes() {
+  const agentId = document.getElementById('fe-agent-id').value.trim();
+  if (!agentId) { alert('Please enter an Agent ID.'); return; }
+
+  const wrap    = document.getElementById('fe-node-list-wrap');
+  const loadBtn = document.getElementById('fe-load-btn');
+  const expBtn  = document.getElementById('fe-export-btn');
+  const status  = document.getElementById('fe-load-status');
+
+  loadBtn.disabled = true;
+  setStatus('fe-load-status', 'running', '● Loading…');
+  wrap.innerHTML = '<span class="empty">Loading…</span>';
+  expBtn.style.display = 'none';
+
+  try {
+    const res  = await fetch(`/api/flow-nodes/${encodeURIComponent(agentId)}`);
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error ?? 'Request failed');
+
+    _feNodes = data.nodes ?? [];
+
+    if (_feNodes.length === 0) {
+      wrap.innerHTML = '<span class="empty">No editable nodes found for this agent.</span>';
+      setStatus('fe-load-status', 'success', '✔ Done');
+    } else {
+      wrap.innerHTML = '';
+      const list = document.createElement('div');
+      list.className = 'node-list';
+      _feNodes.forEach((node) => list.appendChild(buildNodeCard(node)));
+      wrap.appendChild(list);
+      setStatus('fe-load-status', 'success', `✔ ${_feNodes.length} node(s) loaded`);
+      expBtn.style.display = '';
+    }
+  } catch (err) {
+    wrap.innerHTML = `<span class="empty" style="color:var(--red)">✖ ${err.message}</span>`;
+    setStatus('fe-load-status', 'error', '✖ Error');
+  } finally {
+    loadBtn.disabled = false;
+  }
+}
+
+function buildNodeCard(node) {
+  const card = document.createElement('div');
+  card.className = 'node-card';
+  card.dataset.nodeId = node.id;
+
+  card.innerHTML = `
+    <div class="node-card-header">
+      <span class="node-name">${escHtml(node.name)}</span>
+      <span class="node-type-tag">${escHtml(node.type)}</span>
+      <span class="node-instr-type">${node.instructionType === 'static_text' ? 'static text' : 'prompt'}</span>
+    </div>
+    <textarea id="fe-text-${escHtml(node.id)}">${escHtml(node.text)}</textarea>
+    <div class="node-card-footer">
+      <button class="node-save-btn" onclick="saveNodeInstruction('${escHtml(node.id)}', '${escHtml(node.instructionType)}', this)">Save</button>
+      <span class="node-status" id="fe-status-${escHtml(node.id)}"></span>
+    </div>
+  `;
+  return card;
+}
+
+async function saveNodeInstruction(nodeId, instructionType, btn) {
+  const agentId    = document.getElementById('fe-agent-id').value.trim();
+  const textarea   = document.getElementById(`fe-text-${nodeId}`);
+  const statusEl   = document.getElementById(`fe-status-${nodeId}`);
+  const text       = textarea.value;
+
+  btn.disabled = true;
+  statusEl.className = 'node-status saving';
+  statusEl.textContent = '● Saving…';
+
+  try {
+    const res  = await fetch('/api/flow-node/update', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ agentId, nodeId, text, instructionType }),
+    });
+
+    // drain the SSE stream, look for close event
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+    let buf = '', success = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        const lines = part.split('\n');
+        let event = 'message', dataStr = '';
+        for (const l of lines) {
+          if (l.startsWith('event:')) event = l.slice(6).trim();
+          if (l.startsWith('data:'))  dataStr = l.slice(5).trim();
+        }
+        if (event === 'close') {
+          try { success = JSON.parse(dataStr).success; } catch {}
+        }
+      }
+    }
+
+    if (success) {
+      statusEl.className = 'node-status ok';
+      statusEl.textContent = '✔ Saved';
+      // update local cache
+      const cached = _feNodes.find(n => n.id === nodeId);
+      if (cached) cached.text = text;
+    } else {
+      statusEl.className = 'node-status fail';
+      statusEl.textContent = '✖ Save failed';
+    }
+  } catch (err) {
+    statusEl.className = 'node-status fail';
+    statusEl.textContent = '✖ ' + err.message;
+  } finally {
+    btn.disabled = false;
+    // auto-clear status after 4s
+    setTimeout(() => { if (statusEl.textContent !== '') statusEl.textContent = ''; }, 4000);
+  }
+}
+
+function exportFlowNodes() {
+  const agentId = document.getElementById('fe-agent-id').value.trim();
+  if (!_feNodes.length) return;
+
+  const lines = [`# Flow Nodes — ${agentId}`, ''];
+  _feNodes.forEach((node) => {
+    const currentText = document.getElementById(`fe-text-${node.id}`)?.value ?? node.text;
+    lines.push(`## ${node.name}`, '');
+    lines.push(`| Field | Value |`);
+    lines.push(`|-------|-------|`);
+    lines.push(`| Node ID | \`${node.id}\` |`);
+    lines.push(`| Type    | \`${node.type}\` |`);
+    lines.push(`| Instruction type | \`${node.instructionType}\` |`);
+    lines.push('', '### Instruction', '', currentText, '');
+    lines.push('---', '');
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `flow-nodes-${agentId}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 </script>

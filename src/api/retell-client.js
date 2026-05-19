@@ -256,6 +256,68 @@ export async function getAgentMetaAny(agentId) {
   };
 }
 
+// ─── Conversation-Flow node helpers ─────────────────────────────────────────
+
+/** Node types that carry a user-editable instruction text. */
+const INSTRUCTION_NODE_TYPES = new Set([
+  'conversation', 'subagent', 'end', 'function', 'transfer_call',
+  'agent_swap', 'bridge_transfer', 'cancel_transfer', 'mcp', 'code',
+]);
+
+/**
+ * Fetch all nodes from a conversation-flow agent.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ nodes: Array, flowId: string, agentName: string }>}
+ */
+export async function getFlowNodes(agentId) {
+  const { flow, flowId } = await getConvFlowForAgent(agentId);
+  const agent = await getAgent(agentId);
+  return {
+    nodes:     flow.nodes ?? [],
+    flowId,
+    agentName: agent.agent_name ?? agentId,
+  };
+}
+
+/**
+ * Update a single node's instruction inside a conversation flow.
+ * Fetches the current full nodes array, patches the target node, then writes
+ * the whole array back (the API has no single-node patch endpoint).
+ *
+ * @param {string} agentId
+ * @param {string} nodeId
+ * @param {string} text          New instruction text
+ * @param {'prompt'|'static_text'} instructionType
+ * @returns {Promise<{ flowId: string, nodeName: string }>}
+ */
+export async function updateFlowNodeInstruction(agentId, nodeId, text, instructionType = 'prompt') {
+  const { nodes, flowId } = await getFlowNodes(agentId);
+
+  const idx = nodes.findIndex((n) => n.id === nodeId);
+  if (idx === -1) throw new Error(`Node "${nodeId}" not found in flow`);
+
+  const node = nodes[idx];
+  if (!INSTRUCTION_NODE_TYPES.has(node.type)) {
+    throw new Error(`Node type "${node.type}" does not support instruction editing`);
+  }
+
+  // Deep-clone to avoid mutating the fetched object
+  const updatedNodes = nodes.map((n, i) =>
+    i === idx ? { ...n, instruction: { type: instructionType, text } } : n
+  );
+
+  try {
+    await getClient().conversationFlow.update(flowId, { nodes: updatedNodes });
+  } catch (err) {
+    throw wrapError(`Failed to update node "${nodeId}" in flow "${flowId}"`, err);
+  }
+
+  return { flowId, nodeName: node.name ?? nodeId };
+}
+
+export { INSTRUCTION_NODE_TYPES };
+
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function wrapError(msg, cause) {

@@ -24,6 +24,9 @@ import {
   getClient,
   getAgentPostCallData,
   updateAgentPostCallData,
+  getFlowNodes,
+  updateFlowNodeInstruction,
+  INSTRUCTION_NODE_TYPES,
 } from '../api/retell-client.js';
 
 // ─── 1. SYNC ──────────────────────────────────────────────────────────────────
@@ -633,7 +636,76 @@ async function _syncPostCallDataToTarget(
   return { success: true, added: added.length, updated: updated.length, removed: removed.length };
 }
 
-// ─── 4. AGENT LIST ───────────────────────────────────────────────────────────
+// ─── 4. FLOW NODE EDITOR ─────────────────────────────────────────────────────
+
+/**
+ * Return all editable nodes (nodes that have an instruction field) from a
+ * conversation-flow agent, in a UI-friendly shape.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ agentName: string, flowId: string, nodes: Array }>}
+ */
+export async function listFlowNodes(agentId) {
+  const { nodes, flowId, agentName } = await getFlowNodes(agentId);
+
+  // Include all nodes of editable types, even those without an instruction yet
+  // (conversation nodes always have instruction; end/function/transfer_call etc. make it optional)
+  const editable = nodes
+    .filter((n) => INSTRUCTION_NODE_TYPES.has(n.type))
+    .map((n) => ({
+      id:              n.id,
+      name:            n.name ?? n.id,
+      type:            n.type,
+      instructionType: n.instruction?.type ?? 'prompt',
+      text:            n.instruction?.text ?? '',
+    }));
+
+  return { agentName, flowId, nodes: editable };
+}
+
+/**
+ * Update the instruction of a single node in a conversation-flow agent.
+ *
+ * @param {object} opts
+ * @param {string}  opts.agentId
+ * @param {string}  opts.nodeId
+ * @param {string}  opts.text           New instruction text
+ * @param {'prompt'|'static_text'} [opts.instructionType]
+ * @param {boolean} [opts.dryRun]
+ * @param {Function} emit
+ */
+export async function updateFlowNode({ agentId, nodeId, text, instructionType = 'prompt', dryRun = false }, emit) {
+  emit('info', `Fetching flow for agent ${agentId}…`);
+  const { nodes, agentName } = await listFlowNodes(agentId);
+
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) {
+    const msg = `Node "${nodeId}" not found (or not editable)`;
+    emit('error', msg);
+    throw new Error(msg);
+  }
+
+  emit('info', `Agent: ${agentName}`);
+  emit('info', `Node:  ${node.name}  (${node.type})`);
+
+  if (node.text === text && node.instructionType === instructionType) {
+    emit('info', 'No changes needed — instruction is identical');
+    return { success: true, noChange: true };
+  }
+
+  emit('diff', { op: 'update', name: node.name, description: `[${instructionType}] instruction updated` });
+
+  if (!dryRun) {
+    await updateFlowNodeInstruction(agentId, nodeId, text, instructionType);
+    emit('success', `✔ Node "${node.name}" updated`);
+  } else {
+    emit('info', '(dry-run) Would update instruction');
+  }
+
+  return { success: true };
+}
+
+// ─── 5. AGENT LIST ───────────────────────────────────────────────────────────
 
 /**
  * List all agents accessible with the current API key.
