@@ -142,6 +142,120 @@ export async function setLlmTools(llmId, tools) {
   }
 }
 
+// ─── Post Call Analysis helpers ──────────────────────────────────────────────
+
+/**
+ * Read the Post Call Data Retrieval configuration from an agent.
+ *
+ * post_call_analysis_data is stored directly on the agent object (not the LLM
+ * or conversation flow), so this works for ANY engine type.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ fields: Array, model: string|null, agentName: string }>}
+ */
+export async function getAgentPostCallData(agentId) {
+  const agent = await getAgent(agentId);
+  return {
+    fields:    agent.post_call_analysis_data  ?? [],
+    model:     agent.post_call_analysis_model ?? null,
+    agentName: agent.agent_name ?? agentId,
+  };
+}
+
+/**
+ * Write Post Call Data Retrieval configuration to an agent.
+ *
+ * @param {string} agentId
+ * @param {object} params  — { post_call_analysis_data?, post_call_analysis_model? }
+ * @returns {Promise<object>} updated agent
+ */
+export async function updateAgentPostCallData(agentId, params) {
+  try {
+    return await getClient().agent.update(agentId, params);
+  } catch (err) {
+    throw wrapError(`Failed to update post call data for agent "${agentId}"`, err);
+  }
+}
+
+// ─── Conversation-Flow helpers ───────────────────────────────────────────────
+
+/**
+ * Fetch the conversation flow object associated with a conversation-flow agent.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ flow: object, flowId: string }>}
+ */
+export async function getConvFlowForAgent(agentId) {
+  const agent = await getAgent(agentId);
+  const engine = agent.response_engine ?? {};
+  if (engine.type !== 'conversation-flow') {
+    throw new Error(
+      `Agent "${agent.agent_name ?? agentId}" uses engine "${engine.type}" — expected "conversation-flow"`
+    );
+  }
+  const flowId = engine.conversation_flow_id;
+  if (!flowId) throw new Error(`Agent "${agentId}" has no conversation_flow_id`);
+  try {
+    const flow = await getClient().conversationFlow.retrieve(flowId);
+    return { flow, flowId };
+  } catch (err) {
+    throw wrapError(`Failed to retrieve conversation flow "${flowId}"`, err);
+  }
+}
+
+/**
+ * Get tools and dynamic variables from a conversation-flow agent.
+ *
+ * NOTE: conversation-flow uses the field name `tools` (not `general_tools`).
+ * The `tools` array contains only custom tools — end_call / transfer_call are
+ * separate node types in conversation-flow and are NOT stored here.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ customTools: Array, dynamicVars: object, flowId: string }>}
+ */
+export async function getConvFlowData(agentId) {
+  const { flow, flowId } = await getConvFlowForAgent(agentId);
+  return {
+    customTools: (flow.tools ?? []).filter((t) => t.type === 'custom'),
+    dynamicVars: flow.default_dynamic_variables ?? {},
+    flowId,
+  };
+}
+
+/**
+ * Patch a conversation flow with the given fields.
+ *
+ * @param {string} flowId
+ * @param {object} params  — e.g. { general_tools, default_dynamic_variables }
+ * @returns {Promise<object>} updated flow
+ */
+export async function updateConvFlow(flowId, params) {
+  try {
+    return await getClient().conversationFlow.update(flowId, params);
+  } catch (err) {
+    throw wrapError(`Failed to update conversation flow "${flowId}"`, err);
+  }
+}
+
+/**
+ * Resolve agent metadata for ANY engine type (retell-llm or conversation-flow).
+ * Returns a unified meta object so sync logic can branch on engineType.
+ *
+ * @param {string} agentId
+ * @returns {Promise<{ id, name, engineType, llmId, flowId }>}
+ */
+export async function getAgentMetaAny(agentId) {
+  const agent = await getAgent(agentId);
+  const engine = agent.response_engine ?? {};
+  return {
+    id:         agent.agent_id ?? agentId,
+    name:       agent.agent_name ?? agentId,
+    engineType: engine.type ?? 'unknown',
+    llmId:      engine.llm_id ?? null,
+    flowId:     engine.conversation_flow_id ?? null,
+  };
+}
+
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function wrapError(msg, cause) {

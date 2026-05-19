@@ -17,6 +17,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   syncTools,
+  syncVarsAndTools,
+  syncPostCallData,
   diffTools,
   takeSnapshot,
   listSnapshots,
@@ -113,6 +115,95 @@ app.post('/api/sync', async (req, res) => {
   try {
     const results = await syncTools(
       { from, to: targets, mode, filter: filterSet, dryRun },
+      emit
+    );
+    close(true, { results });
+  } catch (err) {
+    emit('error', { message: err.message });
+    close(false);
+  }
+});
+
+/**
+ * POST /api/sync-vars-and-tools  (SSE)
+ * Body: { from, to: string|string[], mode, syncTools, syncVars, toolFilter, varFilter, dryRun }
+ *
+ * Cross-engine sync: reads from a retell-llm source agent and writes to any
+ * target (retell-llm or conversation-flow). Syncs dynamic variables and/or
+ * custom tools depending on the flags passed.
+ */
+app.post('/api/sync-vars-and-tools', async (req, res) => {
+  const {
+    from,
+    to,
+    mode       = 'merge',
+    syncTools  = true,
+    syncVars   = true,
+    toolFilter = null,
+    varFilter  = null,
+    dryRun     = false,
+  } = req.body ?? {};
+
+  const { emit, close } = startSSE(res);
+
+  if (!from || !to) {
+    emit('error', { message: 'Missing required fields: from, to' });
+    return close(false);
+  }
+
+  const targets     = Array.isArray(to) ? to : [to];
+  const toolFilterSet = toolFilter
+    ? new Set(toolFilter.split(',').map((s) => s.trim()).filter(Boolean))
+    : null;
+  const varFilterSet = varFilter
+    ? new Set(varFilter.split(',').map((s) => s.trim()).filter(Boolean))
+    : null;
+
+  try {
+    const results = await syncVarsAndTools(
+      { from, to: targets, mode, syncTools, syncVars, toolFilter: toolFilterSet, varFilter: varFilterSet, dryRun },
+      emit
+    );
+    close(true, { results });
+  } catch (err) {
+    emit('error', { message: err.message });
+    close(false);
+  }
+});
+
+/**
+ * POST /api/sync-post-call-data  (SSE)
+ * Body: { from, to: string|string[], mode, filter, syncModel, dryRun }
+ *
+ * Syncs Post Call Data Retrieval fields from any source agent to any target
+ * agent(s). Works across engine types (retell-llm ↔ conversation-flow) because
+ * post_call_analysis_data is stored on the agent object, not on the LLM / flow.
+ */
+app.post('/api/sync-post-call-data', async (req, res) => {
+  const {
+    from,
+    to,
+    mode      = 'merge',
+    filter    = null,
+    syncModel = false,
+    dryRun    = false,
+  } = req.body ?? {};
+
+  const { emit, close } = startSSE(res);
+
+  if (!from || !to) {
+    emit('error', { message: 'Missing required fields: from, to' });
+    return close(false);
+  }
+
+  const targets   = Array.isArray(to) ? to : [to];
+  const filterSet = filter
+    ? new Set(filter.split(',').map((s) => s.trim()).filter(Boolean))
+    : null;
+
+  try {
+    const results = await syncPostCallData(
+      { from, to: targets, mode, filter: filterSet, syncModel, dryRun },
       emit
     );
     close(true, { results });

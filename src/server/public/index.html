@@ -308,6 +308,12 @@
     <button onclick="switchTab('batch', this)">
       <span class="icon">⊕</span> Batch Sync
     </button>
+    <button onclick="switchTab('flowsync', this)">
+      <span class="icon">↕</span> Flow Sync
+    </button>
+    <button onclick="switchTab('postcall', this)">
+      <span class="icon">📋</span> Post Call
+    </button>
     <div class="divider"></div>
     <button onclick="switchTab('diff', this)">
       <span class="icon">≠</span> Agent Diff
@@ -406,6 +412,116 @@
       <div>
         <div class="section-label">Output Log</div>
         <div class="log-wrap" id="batch-log"><span class="empty">Run a batch sync to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── FLOW SYNC ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-flowsync">
+      <div>
+        <h2>Flow Sync</h2>
+        <p class="desc" style="margin-top:6px">
+          Copy <strong>Default Dynamic Variables</strong> and/or <strong>Custom Functions</strong>
+          from a <code>retell-llm</code> agent to any target — including <code>conversation-flow</code> agents.
+          Non-custom tools (end_call, transfer_call…) are never touched.
+        </p>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Source Agent ID <span>*</span> <span style="color:var(--text2);font-weight:400">(retell-llm)</span></label>
+          <input type="text" id="fs-from" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Target Agent ID <span>*</span> <span style="color:var(--text2);font-weight:400">(any engine)</span></label>
+          <input type="text" id="fs-to" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="fs-mode">
+            <option value="merge">merge — upsert, keep target-only items</option>
+            <option value="replace">replace — overwrite all custom tools / all vars</option>
+          </select>
+        </div>
+        <div class="field" style="display:flex;flex-direction:column;justify-content:flex-end;gap:10px">
+          <label class="check-row">
+            <input type="checkbox" id="fs-sync-tools" checked /> Sync Custom Functions
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="fs-sync-vars" checked /> Sync Dynamic Variables
+          </label>
+        </div>
+        <div class="field">
+          <label>Tool Filter <span style="color:var(--text2);font-weight:400">(optional)</span></label>
+          <input type="text" id="fs-tool-filter" placeholder="create_lead, lookup_customer" />
+          <span class="hint" style="margin-top:4px">Comma-separated tool names. Leave blank to sync all.</span>
+        </div>
+        <div class="field">
+          <label>Variable Filter <span style="color:var(--text2);font-weight:400">(optional)</span></label>
+          <input type="text" id="fs-var-filter" placeholder="business_name, working_hours" />
+          <span class="hint" style="margin-top:4px">Comma-separated variable keys. Leave blank to sync all.</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="run-btn" id="fs-dry-btn" onclick="runFlowSync(true)">▷ Dry Run</button>
+        <button class="run-btn" id="fs-run-btn" onclick="runFlowSync(false)" style="background:var(--green);color:#000">▶ Apply</button>
+        <span class="status-pill" id="fs-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output Log</div>
+        <div class="log-wrap" id="fs-log"><span class="empty">Run a sync to see output…</span></div>
+      </div>
+    </div>
+
+    <!-- ─── POST CALL DATA SYNC ─────────────────────────────── -->
+    <div class="panel" id="panel-postcall">
+      <div>
+        <h2>Post Call Data Sync</h2>
+        <p class="desc" style="margin-top:6px">
+          Copy <strong>Post Call Data Retrieval</strong> fields from any source agent to one or more targets.
+          Works across engine types — <code>retell-llm</code> and <code>conversation-flow</code> are both supported
+          on either end, because this config lives on the agent itself.
+        </p>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Source Agent ID <span>*</span></label>
+          <input type="text" id="pc-from" placeholder="agent_xxxxxxxxxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="pc-mode">
+            <option value="merge">merge — upsert by field name, keep target-only fields</option>
+            <option value="replace">replace — overwrite all matching fields</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column: 1 / -1">
+          <label>Target Agent IDs <span>*</span></label>
+          <textarea id="pc-to" rows="3" placeholder="agent_xxxxxxxxxxxxxxxx&#10;agent_yyyyyyyyyyyyyyyy" style="resize:vertical"></textarea>
+          <span class="hint" style="margin-top:4px">One agent ID per line. Any engine type accepted.</span>
+        </div>
+        <div class="field">
+          <label>Field Filter <span style="color:var(--text2);font-weight:400">(optional)</span></label>
+          <input type="text" id="pc-filter" placeholder="call_outcome, booking_confirmed, customer_name" />
+          <span class="hint" style="margin-top:4px">Comma-separated field names. Leave blank to sync all.</span>
+        </div>
+        <div class="field" style="display:flex;flex-direction:column;justify-content:flex-end;gap:10px">
+          <label class="check-row">
+            <input type="checkbox" id="pc-sync-model" />
+            Also sync <code style="font-size:12px">post_call_analysis_model</code>
+          </label>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="run-btn" id="pc-dry-btn" onclick="runPostCallSync(true)">▷ Dry Run</button>
+        <button class="run-btn" id="pc-run-btn" onclick="runPostCallSync(false)" style="background:var(--green);color:#000">▶ Apply</button>
+        <span class="status-pill" id="pc-status"></span>
+      </div>
+      <div>
+        <div class="section-label">Output Log</div>
+        <div class="log-wrap" id="pc-log"><span class="empty">Run a sync to see output…</span></div>
       </div>
     </div>
 
@@ -654,6 +770,7 @@ function switchTab(name, btn) {
   btn.classList.add('active');
   if (name === 'prompt')    loadMerchants();
   if (name === 'merchants') loadMerchantsTab();
+  // flowsync has no async data to preload
 }
 
 // ─── SSE log renderer ─────────────────────────────────────────────────────────
@@ -801,6 +918,31 @@ function runBatch(dryRun) {
     logId: 'batch-log',
     statusId: 'batch-status',
     buttons: ['batch-dry-btn', 'batch-run-btn'],
+  });
+}
+
+// ─── Flow Sync ────────────────────────────────────────────────────────────────
+
+function runFlowSync(dryRun) {
+  const from = document.getElementById('fs-from').value.trim();
+  const to   = document.getElementById('fs-to').value.trim();
+  if (!from || !to) { alert('Source and Target Agent IDs are required.'); return; }
+
+  streamSSE({
+    url: '/api/sync-vars-and-tools',
+    body: {
+      from,
+      to,
+      mode:       document.getElementById('fs-mode').value,
+      syncTools:  document.getElementById('fs-sync-tools').checked,
+      syncVars:   document.getElementById('fs-sync-vars').checked,
+      toolFilter: document.getElementById('fs-tool-filter').value.trim() || null,
+      varFilter:  document.getElementById('fs-var-filter').value.trim() || null,
+      dryRun,
+    },
+    logId:    'fs-log',
+    statusId: 'fs-status',
+    buttons:  ['fs-dry-btn', 'fs-run-btn'],
   });
 }
 
@@ -1005,6 +1147,32 @@ async function saveMerchantConfig() {
   } catch (err) {
     msg.textContent = '✖ ' + err.message; msg.className = 'save-msg fail';
   }
+}
+
+// ─── Post Call Data Sync ──────────────────────────────────────────────────────
+
+function runPostCallSync(dryRun) {
+  const from = document.getElementById('pc-from').value.trim();
+  const targets = document.getElementById('pc-to').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  if (!from || !targets.length) { alert('Source and at least one Target Agent ID are required.'); return; }
+
+  const filter = document.getElementById('pc-filter').value.trim() || null;
+
+  streamSSE({
+    url: '/api/sync-post-call-data',
+    body: {
+      from,
+      to:        targets,
+      mode:      document.getElementById('pc-mode').value,
+      filter,
+      syncModel: document.getElementById('pc-sync-model').checked,
+      dryRun,
+    },
+    logId:    'pc-log',
+    statusId: 'pc-status',
+    buttons:  ['pc-dry-btn', 'pc-run-btn'],
+  });
 }
 
 function runPromptSync(dryRun) {
